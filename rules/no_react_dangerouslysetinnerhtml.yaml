@@ -1,0 +1,87 @@
+rules:
+  - id: no-react-dangerouslysetinnerhtml
+    message: >-
+      This rule prevents the use of the React dangerouslySetInnerHTML property with non-constant or unsanitized values.
+      Without the use of DOMpurify, this can undermine our Content Security Policy and other frameworks designed to
+      eliminate the risk of cross-site scripting (XSS) attacks.
+
+      Please resolve this error by working within React/JSX instead of assigning HTML directly. If this is not
+      possible, please use DOMPurify by calling the sanitize method.
+    severity: ERROR
+    metadata:
+      cwe: "CWE-79: Improper Neutralization of Input During Web Page Generation ('Cross-site Scripting')"
+      owasp:
+        - "A07:2017 - Cross-Site Scripting (XSS)"
+        - "A03:2021 - Injection"
+      references:
+        - https://paper.dropbox.com/doc/XSS-mitigation-in-JS-code--BeEeIskDK_5ywvZkIzs66efFAg-J5RZFeXqGi4bivVIt9b53
+      category: security
+      technology:
+        - JavaScript
+    languages:
+      - javascript
+      - typescript
+    mode: taint
+    pattern-sources:
+      - patterns:
+        - pattern-either:
+          - pattern-inside: |
+              function ...({..., $X, ...}) { ... }
+          - pattern-inside: |
+              function ...(..., $X, ...) { ... }
+        - focus-metavariable: $X
+      - pattern: $Y.$Z
+      - pattern: $Y[...]
+    pattern-sinks:
+      - patterns:
+        - focus-metavariable: $X
+        - pattern-either:
+          - pattern: |
+              {..., dangerouslySetInnerHTML: {__html: $X}, ...}
+          - pattern: |
+              <$Y ... dangerouslySetInnerHTML={{__html: $X}} />
+        - metavariable-pattern:
+            metavariable: $X
+            patterns:
+            - pattern-not: |
+                {...}
+    pattern-sanitizers:
+      - patterns:
+        - pattern-either:
+          - pattern-inside: |
+              import $S from "dompurify"
+              ...
+          - pattern-inside: |
+              import {..., $S, ...} from "dompurify"
+              ...
+          - pattern-inside: |
+              import * as $S from "dompurify"
+              ...
+          - pattern-inside: |
+              $S = require("dompurify")
+              ...
+          - pattern-inside: |
+              import $S from "isomorphic-dompurify"
+              ...
+          - pattern-inside: |
+              import {..., $S, ...} from "isomorphic-dompurify"
+              ...
+          - pattern-inside: |
+              import * as $S from "isomorphic-dompurify"
+              ...
+          - pattern-inside: |
+              $S = require("isomorphic-dompurify")
+              ...
+        - pattern-either:
+          - patterns:
+            - pattern-inside: |
+                $VALUE = $S(...)
+                ...
+            - pattern: $VALUE.sanitize(...)
+          - patterns:
+            - pattern-inside: |
+                $VALUE = $S.sanitize
+                ...
+            - pattern: $VALUE(...)
+          - pattern: $S.sanitize(...)
+          - pattern: $S(...)
